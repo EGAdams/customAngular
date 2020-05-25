@@ -1446,6 +1446,41 @@ describe('Scope', function () {
                 var event2 = listener2.calls.mostRecent().args[0];
                 expect(event1).toBe(event2);
             });
+
+            it('passes additional arguments to listeners on ' + method, function () {
+                var listener = jasmine.createSpy();
+                scope.$on('someEvent', listener);
+                scope[method]('someEvent', 'and', ['additional', 'arguments'], '...');
+                expect(listener.calls.mostRecent().args[1]).toEqual('and');
+                expect(listener.calls.mostRecent().args[2]).toEqual(['additional', 'arguments']);
+                expect(listener.calls.mostRecent().args[3]).toEqual('...');
+            });
+
+            it('returns the event object on ' + method, function () {
+                var returnedEvent = scope[method]('someEvent');
+                expect(returnedEvent).toBeDefined();
+                expect(returnedEvent.name).toEqual('someEvent');
+            });
+
+            it('can be deregistered ' + method, function () {
+                var listener = jasmine.createSpy();
+                var deregister = scope.$on('someEvent', listener);
+                deregister();
+                scope[method]('someEvent');
+                expect(listener).not.toHaveBeenCalled();
+            });
+
+            it('does not skip the next listener when removed on ' + method, function () {
+                var deregister;
+                var listener = function () {
+                    deregister();
+                };
+                var nextListener = jasmine.createSpy();
+                deregister = scope.$on('someEvent', listener);
+                scope.$on('someEvent', nextListener);
+                scope[method]('someEvent');
+                expect(nextListener).toHaveBeenCalled();
+            });
         });
     });
 });
