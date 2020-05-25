@@ -9,7 +9,8 @@ function isArrayLike(obj) {
         return false;
     }
     var length = obj.length;
-    return _.isNumber(length);
+    return length === 0 ||
+        (_.isNumber(length) && length > 0 && (length - 1) in obj);
 }
 
 function Scope() {
@@ -274,6 +275,8 @@ Scope.prototype.$watchCollection = function (watchFn, listenerFn) {
     var newValue;
     var oldValue;
     var oldLength;
+    var veryOldValue;
+    var trackVeryOldValue = (listenerFn.length > 1);
     var changeCount = 0;
     var internalWatchFn = function (scope) {
         var newLength;
@@ -335,7 +338,10 @@ Scope.prototype.$watchCollection = function (watchFn, listenerFn) {
         return changeCount;
     };
     var internalListenerFn = function () {
-        listenerFn(newValue, oldValue, self);
+        listenerFn(newValue, veryOldValue, self);
+        if (trackVeryOldValue) {
+            veryOldValue = _.clone(newValue);
+        }
     };
     return this.$watch(internalWatchFn, internalListenerFn);
 };
