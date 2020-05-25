@@ -1,6 +1,6 @@
 //
 //
-'use strict'; // myAwm6413 nme186
+'use strict';
 var _ = require('lodash');
 function initWatchVal() { }
 
