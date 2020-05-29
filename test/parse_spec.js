@@ -64,10 +64,14 @@ describe('parse', function () {
         var fn = parse("'a\\\'b'");
         expect(fn()).toEqual('a\'b');
     });
-    
+
     it('can parse a string with double quotes inside', function () {
         var fn = parse('"a\\\"b"');
         expect(fn()).toEqual('a\"b');
+    });
+
+    it('will not parse a string with invalid unicode escapes', function () {
+        expect(function () { parse('"\\u00T0"'); }).toThrow();
     });
 });
 
