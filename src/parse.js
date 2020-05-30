@@ -171,11 +171,13 @@ AST.ArrayExpression = 'ArrayExpression';
 AST.ObjectExpression = 'ObjectExpression';
 AST.Property = 'Property';
 AST.Identifier = 'Identifier';
+AST.ThisExpression = 'ThisExpression';
 
 AST.prototype.constants = {
     'null': { type: AST.Literal, value: null },
     'true': { type: AST.Literal, value: true },
-    'false': { type: AST.Literal, value: false }
+    'false': { type: AST.Literal, value: false },
+    'this': { type: AST.ThisExpression }
 };
 
 AST.prototype.ast = function (text) {
@@ -293,9 +295,13 @@ ASTCompiler.prototype.recurse = function (ast) {
             return '{' + properties.join(',') + '}';
 
         case AST.Identifier:
-            this.state.body.push('var v0;');
-            this.if_('s', 'v0=' + this.nonComputedMember('s', ast.name) + ';');
-            return 'v0';
+            var intoId = this.nextId();
+            this.state.body.push('var ', intoId, ';');
+            this.if_('s', this.assign(intoId, this.nonComputedMember('s', ast.name)));
+            return intoId;
+
+        case AST.ThisExpression:
+            return 's';
     }
 };
 
@@ -325,13 +331,23 @@ ASTCompiler.prototype.if_ = function (test, consequent) {
     this.state.body.push('if(', test, '){', consequent, '}');
 };
 
+ASTCompiler.prototype.assign = function (id, value) {
+    return id + '=' + value + ';';
+};
+
+ASTCompiler.prototype.nextId = function () {
+    var id = 'v' + (this.state.nextId++);
+    this.state.vars.push(id);
+    return id;
+};
+
 function ASTCompiler(astBuilder) {
     this.astBuilder = astBuilder;
 }
 
 ASTCompiler.prototype.compile = function (text) {
     var ast = this.astBuilder.ast(text);
-    this.state = { body: [] };
+    this.state = { body: [], nextId: 0, vars: [] };
     this.recurse(ast);
     /* jshint -W054 */
     return new Function('s', this.state.body.join(''));
