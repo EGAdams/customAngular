@@ -43,7 +43,10 @@ Lexer.prototype.readIdent = function () {
         }
         this.index++;
     }
-    var token = { text: text };
+    var token = {
+        text: text,
+        identifier: true
+    };
     this.tokens.push(token);
 };
 
@@ -161,10 +164,13 @@ Lexer.prototype.isExpOperator = function (ch) {
 function AST(lexer) {
     this.lexer = lexer;
 }
+
 AST.Program = 'Program';
 AST.Literal = 'Literal';
 AST.ArrayExpression = 'ArrayExpression';
 AST.ObjectExpression = 'ObjectExpression';
+AST.Property = 'Property';
+AST.Identifier = 'Identifier';
 
 AST.prototype.constants = {
     'null': { type: AST.Literal, value: null },
@@ -179,6 +185,10 @@ AST.prototype.ast = function (text) {
 
 AST.prototype.program = function () {
     return { type: AST.Program, body: this.primary() };
+};
+
+AST.prototype.identifier = function () {
+    return { type: AST.Identifier, name: this.consume().text };
 };
 
 AST.prototype.expect = function (e) {
@@ -203,8 +213,22 @@ AST.prototype.arrayDeclaration = function () {
 };
 
 AST.prototype.object = function () {
+    var properties = [];
+    if (!this.peek('}')) {
+        do {
+            var property = { type: AST.Property };
+            if (this.peek().identifier) {
+                property.key = this.identifier();
+            } else {
+                property.key = this.constant();
+            }
+            this.consume(':');
+            property.value = this.primary();
+            properties.push(property);
+        } while (this.expect(','));
+    }
     this.consume('}');
-    return { type: AST.ObjectExpression };
+    return { type: AST.ObjectExpression, properties: properties };
 };
 
 AST.prototype.peek = function (e) {
@@ -231,6 +255,8 @@ AST.prototype.primary = function () {
         return this.object();
     } else if (this.constants.hasOwnProperty(this.tokens[0].text)) {
         return this.constants[this.consume().text];
+    } else if (this.peek().identifier) {
+        return this.identifier();
     } else {
         return this.constant();
     }
@@ -257,7 +283,17 @@ ASTCompiler.prototype.recurse = function (ast) {
             return '[' + elements.join(',') + ']';
 
         case AST.ObjectExpression:
-            return '{}';
+            var properties = _.map(ast.properties, _.bind(function (property) {
+                var key = property.key.type === AST.Identifier ?
+                    property.key.name :
+                    this.escape(property.key.value);
+                var value = this.recurse(property.value);
+                return key + ':' + value;
+            }, this));
+            return '{' + properties.join(',') + '}';
+
+        case AST.Identifier:
+            return this.nonComputedMember('s', ast.name);
     }
 };
 
@@ -279,6 +315,10 @@ ASTCompiler.prototype.escape = function (value) {
     }
 };
 
+ASTCompiler.prototype.nonComputedMember = function (left, right) {
+    return '(' + left + ').' + right;
+};
+
 function ASTCompiler(astBuilder) {
     this.astBuilder = astBuilder;
 }
@@ -288,7 +328,7 @@ ASTCompiler.prototype.compile = function (text) {
     this.state = { body: [] };
     this.recurse(ast);
     /* jshint -W054 */
-    return new Function(this.state.body.join(''));
+    return new Function('s', this.state.body.join(''));
     /* jshint +W054 */
 };
 
