@@ -293,7 +293,9 @@ ASTCompiler.prototype.recurse = function (ast) {
             return '{' + properties.join(',') + '}';
 
         case AST.Identifier:
-            return this.nonComputedMember('s', ast.name);
+            this.state.body.push('var v0;');
+            this.if_('s', 'v0=' + this.nonComputedMember('s', ast.name) + ';');
+            return 'v0';
     }
 };
 
@@ -317,6 +319,10 @@ ASTCompiler.prototype.escape = function (value) {
 
 ASTCompiler.prototype.nonComputedMember = function (left, right) {
     return '(' + left + ').' + right;
+};
+
+ASTCompiler.prototype.if_ = function (test, consequent) {
+    this.state.body.push('if(', test, '){', consequent, '}');
 };
 
 function ASTCompiler(astBuilder) {
