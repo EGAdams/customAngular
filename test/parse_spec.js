@@ -205,6 +205,11 @@ describe('parse', function () {
         expect(fn({ anArray: [1, 2, 3] })).toBe(2);
     });
 
+    it('parses another computed numeric array access', function () {
+        var fn = parse('anArray[6]');
+        expect(fn({ anArray: [1, 2, 3, 4, 5, 6, 7, 8] })).toBe(7);
+    });
+
     it('parses a computed access with another key as property', function () {
         var fn = parse('lock[key]');
         expect(fn({ key: 'theKey', lock: { theKey: 42 } })).toBe(42);
@@ -213,6 +218,11 @@ describe('parse', function () {
     it('parses computed access with another access as property', function () {
         var fn = parse('lock[keys["aKey"]]');
         expect(fn({ keys: { aKey: 'theKey' }, lock: { theKey: 42 } })).toBe(42);
+    });
+
+    it('parses a function call', function () {
+        var fn = parse('aFunction()');
+        expect(fn({ aFunction: function () { return 42; } })).toBe(42);
     });
 });
 

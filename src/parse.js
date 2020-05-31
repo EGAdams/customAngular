@@ -66,7 +66,7 @@ Lexer.prototype.lex = function (text) {
             this.readNumber();
         } else if (this.is('\'"')) {
             this.readString(this.ch);
-        } else if (this.is('[],{}:.')) {
+        } else if (this.is('[],{}:.()')) {
             this.tokens.push({
                 text: this.ch
             });
@@ -174,6 +174,7 @@ AST.Identifier = 'Identifier';
 AST.ThisExpression = 'ThisExpression';
 AST.LocalsExpression = 'LocalsExpression';
 AST.MemberExpression = 'MemberExpression';
+AST.CallExpression = 'CallExpression';
 
 AST.prototype.constants = {
     'null': { type: AST.Literal, value: null },
@@ -268,7 +269,7 @@ AST.prototype.primary = function () {
         primary = this.constant();
     }
     var next;
-    while ((next = this.expect('.', '['))) {
+    while ((next = this.expect('.', '[', '('))) {
         if (next.text === '[') {
             primary = {
                 type: AST.MemberExpression,
@@ -277,13 +278,16 @@ AST.prototype.primary = function () {
                 computed: true
             };
             this.consume(']');
-        } else {
+        } else if (next.text === '.') {
             primary = {
                 type: AST.MemberExpression,
                 object: primary,
                 property: this.identifier(),
                 computed: false
             };
+        } else if (next.text === '(') {
+            primary = { type: AST.CallExpression, callee: primary };
+            this.consume(')');
         }
     }
     return primary;
@@ -338,6 +342,10 @@ ASTCompiler.prototype.recurse = function (ast) {
             return intoId;
         case AST.LocalsExpression:
             return 'l';
+
+        case AST.CallExpression:
+            var callee = this.recurse(ast.callee);
+            return callee + '&&' + callee + '()';
     }
 };
 
