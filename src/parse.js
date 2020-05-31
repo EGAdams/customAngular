@@ -302,42 +302,10 @@ ASTCompiler.prototype.recurse = function (ast) {
             return '{' + properties.join(',') + '}';
         case AST.Identifier:
             intoId = this.nextId();
-            this.if_('s', this.assign(intoId, this.nonComputedMember('s', ast.name)));
-            return intoId;
-        case AST.ThisExpression:
-            return 's';
-        case AST.MemberExpression:
-            intoId = this.nextId();
-            var left = this.recurse(ast.object);
-            this.if_(left,
-                this.assign(intoId, this.nonComputedMember(left, ast.property.name)));
-            return intoId;
-    }
-}; ASTCompiler.prototype.recurse = function (ast) {
-    var intoId;
-    switch (ast.type) {
-        case AST.Program:
-            this.state.body.push('return ', this.recurse(ast.body), ';');
-            break;
-        case AST.Literal:
-            return this.escape(ast.value);
-        case AST.ArrayExpression:
-            var elements = _.map(ast.elements, _.bind(function (element) {
-                return this.recurse(element);
-            }, this));
-            return '[' + elements.join(',') + ']';
-        case AST.ObjectExpression:
-            var properties = _.map(ast.properties, _.bind(function (property) {
-                var key = property.key.type === AST.Identifier ?
-                    property.key.name :
-                    this.escape(property.key.value);
-                var value = this.recurse(property.value);
-                return key + ':' + value;
-            }, this));
-            return '{' + properties.join(',') + '}';
-        case AST.Identifier:
-            intoId = this.nextId();
-            this.if_('s', this.assign(intoId, this.nonComputedMember('s', ast.name)));
+            this.if_(this.getHasOwnProperty('l', ast.name),
+                this.assign(intoId, this.nonComputedMember('l', ast.name)));
+            this.if_(this.not(this.getHasOwnProperty('l', ast.name)) + ' && s',
+                this.assign(intoId, this.nonComputedMember('s', ast.name)));
             return intoId;
         case AST.ThisExpression:
             return 's';
@@ -354,6 +322,14 @@ ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA-Z0-9]/g;
 
 ASTCompiler.prototype.stringEscapeFn = function (c) {
     return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+};
+
+ASTCompiler.prototype.not = function (e) {
+    return '!(' + e + ')';
+};
+
+ASTCompiler.prototype.getHasOwnProperty = function (object, property) {
+    return object + '&&(' + this.escape(property) + ' in ' + object + ')';
 };
 
 ASTCompiler.prototype.escape = function (value) {
@@ -395,7 +371,11 @@ ASTCompiler.prototype.compile = function (text) {
     this.state = { body: [], nextId: 0, vars: [] };
     this.recurse(ast);
     /* jshint -W054 */
-    return new Function('s', this.state.body.join(''));
+    return new Function('s', 'l',
+        (this.state.vars.length ?
+            'var ' + this.state.vars.join(',') + ';' :
+            ''
+        ) + this.state.body.join(''));
     /* jshint +W054 */
 };
 
