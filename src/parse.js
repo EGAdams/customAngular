@@ -184,6 +184,16 @@ AST.prototype.constants = {
     '$locals': { type: AST.LocalsExpression }
 };
 
+AST.prototype.parseArguments = function () {
+    var args = [];
+    if (!this.peek(')')) {
+        do {
+            args.push(this.primary());
+        } while (this.expect(','));
+    }
+    return args;
+};
+
 AST.prototype.ast = function (text) {
     this.tokens = this.lexer.lex(text);
     return this.program();
@@ -286,7 +296,11 @@ AST.prototype.primary = function () {
                 computed: false
             };
         } else if (next.text === '(') {
-            primary = { type: AST.CallExpression, callee: primary };
+            primary = {
+                type: AST.CallExpression,
+                callee: primary,
+                arguments: this.parseArguments()
+            };
             this.consume(')');
         }
     }
@@ -345,7 +359,10 @@ ASTCompiler.prototype.recurse = function (ast) {
 
         case AST.CallExpression:
             var callee = this.recurse(ast.callee);
-            return callee + '&&' + callee + '()';
+            var args = _.map(ast.arguments, _.bind(function (arg) {
+                return this.recurse(arg);
+            }, this));
+            return callee + '&&' + callee + '(' + args.join(',') + ')';
     }
 };
 
