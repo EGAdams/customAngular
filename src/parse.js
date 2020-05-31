@@ -264,7 +264,7 @@ AST.prototype.primary = function () {
     } else {
         primary = this.constant();
     }
-    if (this.expect('.')) {
+    while (this.expect('.')) {
         primary = {
             type: AST.MemberExpression,
             object: primary,
