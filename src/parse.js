@@ -172,13 +172,15 @@ AST.ObjectExpression = 'ObjectExpression';
 AST.Property = 'Property';
 AST.Identifier = 'Identifier';
 AST.ThisExpression = 'ThisExpression';
+AST.LocalsExpression = 'LocalsExpression';
 AST.MemberExpression = 'MemberExpression';
 
 AST.prototype.constants = {
     'null': { type: AST.Literal, value: null },
     'true': { type: AST.Literal, value: true },
     'false': { type: AST.Literal, value: false },
-    'this': { type: AST.ThisExpression }
+    'this': { type: AST.ThisExpression },
+    '$locals': { type: AST.LocalsExpression }
 };
 
 AST.prototype.ast = function (text) {
@@ -315,6 +317,8 @@ ASTCompiler.prototype.recurse = function (ast) {
             this.if_(left,
                 this.assign(intoId, this.nonComputedMember(left, ast.property.name)));
             return intoId;
+        case AST.LocalsExpression:
+            return 'l';
     }
 };
 
