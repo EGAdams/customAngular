@@ -10,6 +10,14 @@ var ESCAPES = {
     'v': '\v', '\'': '\'', '"': '"'
 };
 
+function ensureSafeMemberName(name) {
+    if (name === 'constructor' || name === '__proto__' ||
+        name === '__defineGetter__' || name === '__defineSetter__' ||
+        name === '__lookupGetter__' || name === '__lookupSetter__') {
+        throw 'Attempting to access a disallowed field in Angular expressions!';
+    }
+}
+
 function parse(expr) {
     var lexer = new Lexer();
     var parser = new Parser(lexer);
@@ -325,6 +333,10 @@ AST.prototype.constant = function () {
     return { type: AST.Literal, value: this.consume().value };
 };
 
+ASTCompiler.prototype.addEnsureSafeMemberName = function (expr) {
+    this.state.body.push('ensureSafeMemberName(' + expr + ');');
+};
+
 ASTCompiler.prototype.recurse = function (ast, context, create) {
     var intoId;
     switch (ast.type) {
@@ -348,6 +360,7 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
             }, this));
             return '{' + properties.join(',') + '}';
         case AST.Identifier:
+            ensureSafeMemberName(ast.name);
             intoId = this.nextId();
             this.if_(this.getHasOwnProperty('l', ast.name),
                 this.assign(intoId, this.nonComputedMember('l', ast.name)));
@@ -375,6 +388,7 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
             }
             if (ast.computed) {
                 var right = this.recurse(ast.property);
+                this.addEnsureSafeMemberName(right);
                 if (create) {
                     this.if_(this.not(this.computedMember(left, right)),
                         this.assign(this.computedMember(left, right), '{}'));
@@ -386,6 +400,7 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
                     context.computed = true;
                 }
             } else {
+                ensureSafeMemberName(ast.property.name);
                 if (create) {
                     this.if_(this.not(this.nonComputedMember(left, ast.property.name)),
                         this.assign(this.nonComputedMember(left, ast.property.name), '{}'));
@@ -485,12 +500,14 @@ ASTCompiler.prototype.compile = function (text) {
     var ast = this.astBuilder.ast(text);
     this.state = { body: [], nextId: 0, vars: [] };
     this.recurse(ast);
-    /* jshint -W054 */
-    return new Function('s', 'l',
+    var fnString = 'var fn=function(s,l){' +
         (this.state.vars.length ?
             'var ' + this.state.vars.join(',') + ';' :
-            ''
-        ) + this.state.body.join(''));
+            '') +
+        this.state.body.join('') +
+        '}; return fn;';
+    /* jshint -W054 */
+    return new Function('ensureSafeMemberName', fnString)(ensureSafeMemberName);
     /* jshint +W054 */
 };
 
